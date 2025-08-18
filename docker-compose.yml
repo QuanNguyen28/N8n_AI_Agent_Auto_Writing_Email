@@ -1,0 +1,74 @@
+version: "3.9"
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    ports:
+      - "5678:5678"
+    env_file:
+      - ./.env
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - N8N_HOST=n8n.local
+      - N8N_PORT=5678
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASS}
+      - N8N_EDITOR_BASE_URL=http://localhost:5678
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .            # <— dùng chính thư mục dự án
+      dockerfile: ./Dockerfile
+    container_name: fastapi_app
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./:/app             # <— mount đúng thư mục hiện tại
+    env_file:
+      - ./.env              # <— nạp biến cho app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17
+    container_name: postgres_ai
+    env_file:
+      - ./.env              # <— dùng cùng biến với n8n/app
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      POSTGRES_DB: ${POSTGRES_DB:-aiagent}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:

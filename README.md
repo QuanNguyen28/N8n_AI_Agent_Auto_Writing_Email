@@ -1,1 +1,1 @@
-Quyền loz
+Quyền đẹp zai
