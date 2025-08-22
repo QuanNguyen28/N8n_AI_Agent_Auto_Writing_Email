@@ -1,44 +1,46 @@
+# src/app/main.py
+import os
+import logging
 from fastapi import FastAPI
-from pydantic import BaseModel
+from dotenv import load_dotenv
 
-app = FastAPI(title="AI Agent - Python Service")
+try:
+    from pydantic_settings import BaseSettings
+except Exception:
+    try:
+        from pydantic import BaseSettings 
+    except Exception:
+        BaseSettings = object  
 
-# ---- Healthcheck ------------------------------------------------------------
+load_dotenv()
+
+class Settings(BaseSettings):
+    app_host: str = os.getenv("APP_HOST", "0.0.0.0")
+    app_port: int = int(os.getenv("APP_PORT", 8000))
+    debug: bool = os.getenv("APP_DEBUG", "false").lower() in ("1", "true", "yes")
+
+settings = Settings()
+
+logging.basicConfig(
+    level=logging.DEBUG if settings.debug else logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger("ai-agent")
+
+app = FastAPI(
+    title="AI Agent - FastAPI",
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
+
+try:
+    from src.app.routers.llm_router import router as llm_router  
+    app.include_router(llm_router, prefix="/internal/llm-chat", tags=["llm"])
+    logger.info("Registered router: app.routers.llm_router -> /internal/llm-chat")
+except Exception as e:
+    logger.warning("Could not register app.routers.llm_router: %s", e)
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-# ---- Models -----------------------------------------------------------------
-class ChatIn(BaseModel):
-    user_id: str
-    message: str
-
-class EmailIn(BaseModel):
-    to: str
-    subject: str
-    body: str
-
-# ---- LLM mock: quyết định có gọi hàm send_email hay không -------------------
-@app.post("/internal/llm-chat")
-def llm_chat(payload: ChatIn):
-    txt = payload.message.lower().strip()
-    if "gửi email" in txt or "send email" in txt:
-        # n8n sẽ đọc 'function_call' và nhánh TRUE sẽ gọi /internal/send-email
-        return {
-            "function_call": {
-                "name": "send_email",
-                "arguments": {
-                    "to": "someone@example.com",
-                    "subject": "Hello from agent",
-                    "body": f"User {payload.user_id} asked to send an email."
-                }
-            }
-        }
-    # Không gọi hàm gì: trả lời text cho nhánh FALSE
-    return {"reply": f"Bạn vừa nói: {payload.message}"}
-
-# ---- Gửi email (mock) -------------------------------------------------------
-@app.post("/internal/send-email")
-def send_email(payload: EmailIn):
-    # Hôm nay mock: chưa gửi thật, chỉ trả OK
-    return {"ok": True, "sent_to": payload.to, "subject": payload.subject}
