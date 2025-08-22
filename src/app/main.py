@@ -41,6 +41,19 @@ try:
 except Exception as e:
     logger.warning("Could not register app.routers.llm_router: %s", e)
 
-@app.get("/health")
-def health():
+@app.get("/health", tags=["health"])
+async def health():
     return {"status": "ok"}
+
+# ---- Startup / Shutdown events (placeholders) ----
+@app.on_event("startup")
+async def on_startup():
+    logger.info("Starting AI Agent service (debug=%s)", settings.debug)
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    logger.info("Shutting down AI Agent service")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host=settings.app_host, port=settings.app_port, reload=settings.debug)
