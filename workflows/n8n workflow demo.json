@@ -1,0 +1,220 @@
+{
+  "name": "n8n workflow demo",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook/demo",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "6689db91-0d5d-4cb6-8cd8-534bfed5602e",
+      "name": "Webhook (/webhook/demo)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1872,
+        176
+      ],
+      "webhookId": "49f9bfb8-cdf2-4d96-9282-35eb8693c464"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Sanitize incoming payload\nconst p = $json;\n\nfunction pick(o, path, fb=\"\"){ \n  try { return path.split('.').reduce((x,k)=>x && x[k], o) ?? fb; } catch(e){ return fb; }\n}\n\nconst userId = pick(p,'userId', pick(p,'user.id', pick(p,'sender.id','anonymous')));\nconst message = String(p.message ?? pick(p,'message.text','')).trim();\n\nif (!message) {\n  // must return a SINGLE object\n  return { error: 'empty_message', userId };\n}\n\nreturn { userId, message, original: p, ts: Date.now() };\n"
+      },
+      "id": "ab8185c2-c024-46cd-864b-995637d14129",
+      "name": "Sanitize (Code)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1584,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://app:8000/internal/llm-chat/",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"userId\": \"={{ $json.userId }}\",\n  \"message\": \"={{ $json.message }}\"\n}",
+        "options": {}
+      },
+      "id": "750f17b2-e0e8-4e0e-9920-d26b2a5d7dab",
+      "name": "HTTP → FastAPI (LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1296,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Normalize FastAPI response (expect { reply_text, action })\nconst r = $json;\nreturn {\n  reply_text: r.reply_text ?? 'OK',\n  action: r.action ?? null,\n  raw: r\n};\n"
+      },
+      "id": "3cea0edb-d230-4095-aee2-184e55c111c5",
+      "name": "Parse LLM Response (Code)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1056,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "d6cb77e6-4a72-44b7-b5e0-141e8bd0a52c",
+              "leftValue": "={{ $json.action ? ($json.action.name || $json.action) : '' }}",
+              "rightValue": "send_email",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e5fbab99-00ca-46c7-b620-dde270063714",
+      "name": "IF action == send_email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://app:8000/internal/send-email",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"to\": \"={{ $json.action?.args?.to || 'someone@example.com' }}\",\n  \"subject\": \"={{ $json.action?.args?.subject || 'Hello' }}\",\n  \"body\": \"={{ $json.action?.args?.body || $json.reply_text }}\"\n}",
+        "options": {}
+      },
+      "id": "f04d0bfc-8ce9-4c18-b1d3-3af0639d440a",
+      "name": "HTTP → FastAPI (Send Email)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -576,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "507f5177-40ec-47f6-b3f2-c271f34feaf8",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        256
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook (/webhook/demo)": {
+      "main": [
+        [
+          {
+            "node": "Sanitize (Code)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize (Code)": {
+      "main": [
+        [
+          {
+            "node": "HTTP → FastAPI (LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP → FastAPI (LLM)": {
+      "main": [
+        [
+          {
+            "node": "Parse LLM Response (Code)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse LLM Response (Code)": {
+      "main": [
+        [
+          {
+            "node": "IF action == send_email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF action == send_email?": {
+      "main": [
+        [
+          {
+            "node": "HTTP → FastAPI (Send Email)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP → FastAPI (Send Email)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a5b5c44c-a046-45cf-a823-6a40fb20e614",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "61509ca986d334887b912ca08e21bd649c894989ee0d6fce84cea07a636afaf8"
+  },
+  "id": "LYLRHBmvbas9YaYI",
+  "tags": []
+}
