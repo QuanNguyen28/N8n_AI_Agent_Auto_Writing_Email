@@ -8,3 +8,4 @@ asyncpg
 redis
 jinja2
 pydantic-settings
+pydantic[email]

@@ -37,9 +37,16 @@ app = FastAPI(
 try:
     from src.app.routers.llm_router import router as llm_router  
     app.include_router(llm_router, prefix="/internal/llm-chat", tags=["llm"])
-    logger.info("Registered router: app.routers.llm_router -> /internal/llm-chat")
+    logger.info("Registered router: src.app.routers.llm_router -> /internal/llm-chat")
 except Exception as e:
-    logger.warning("Could not register app.routers.llm_router: %s", e)
+    logger.warning("Could not register src.app.routers.llm_router: %s", e)
+
+try:
+    from src.app.routers.send_email_router import router as send_email_router
+    app.include_router(send_email_router, prefix="/internal/send-email", tags=["send-email"])
+    logger.info("Registered router: src.app.routers.send_email_router -> /internal/send-email")
+except Exception as e:
+    logger.warning("Could not register src.app.routers.send_email_router: %s", e)
 
 @app.get("/health", tags=["health"])
 async def health():
