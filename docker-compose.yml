@@ -2,10 +2,12 @@ version: "3.9"
 
 services:
   n8n:
-    image: n8nio/n8n:latest
+    image: n8nio/n8n:latest   # pin phiên bản ổn định
     container_name: n8n
-    ports:
-      - "5678:5678"
+    command: ["start"]        # ✅ CHỈ "start"
+    depends_on:
+      postgres:
+        condition: service_healthy
     env_file:
       - ./.env
     environment:
@@ -15,28 +17,33 @@ services:
       - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
       - DB_POSTGRESDB_USER=${POSTGRES_USER}
       - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
-      - N8N_HOST=n8n.local
-      - N8N_PORT=5678
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=${N8N_USER}
       - N8N_BASIC_AUTH_PASSWORD=${N8N_PASS}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
       - N8N_EDITOR_BASE_URL=http://localhost:5678
+      - GENERIC_TIMEZONE=Asia/Bangkok
+    ports:
+      - "5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
-    depends_on:
-      - postgres
     restart: unless-stopped
 
   app:
     build:
-      context: .            # <— dùng chính thư mục dự án
+      context: .
       dockerfile: ./Dockerfile
     container_name: fastapi_app
     command: uvicorn src.app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - PYTHONPATH=/app
     volumes:
-      - ./:/app             # <— mount đúng thư mục hiện tại
+      - ./:/app
     env_file:
-      - ./.env              # <— nạp biến cho app
+      - ./.env
     ports:
       - "8000:8000"
     depends_on:
@@ -48,15 +55,20 @@ services:
     image: postgres:17
     container_name: postgres_ai
     env_file:
-      - ./.env              # <— dùng cùng biến với n8n/app
+      - ./.env
     environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aiagent}
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
-      POSTGRES_DB: ${POSTGRES_DB:-aiagent}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-aiagent}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     restart: unless-stopped
 
   redis:
