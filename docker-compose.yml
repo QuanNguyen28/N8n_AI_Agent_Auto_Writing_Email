@@ -2,9 +2,9 @@ version: "3.9"
 
 services:
   n8n:
-    image: n8nio/n8n:latest   # pin phiên bản ổn định
+    image: n8nio/n8n:latest  
     container_name: n8n
-    command: ["start"]        # ✅ CHỈ "start"
+    command: ["start"]        
     depends_on:
       postgres:
         condition: service_healthy
