@@ -1,5 +1,5 @@
 {
-  "name": "n8n workflow demo",
+  "name": "My workflow 2",
   "nodes": [
     {
       "parameters": {
@@ -8,13 +8,13 @@
         "responseMode": "lastNode",
         "options": {}
       },
-      "id": "6689db91-0d5d-4cb6-8cd8-534bfed5602e",
+      "id": "9e4a6dd7-28ee-4994-b272-7b95ba033d71",
       "name": "Webhook (/webhook/demo)",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
-        -1872,
-        176
+        -3904,
+        -96
       ],
       "webhookId": "49f9bfb8-cdf2-4d96-9282-35eb8693c464"
     },
@@ -23,13 +23,13 @@
         "mode": "runOnceForEachItem",
         "jsCode": "// Sanitize incoming payload\nconst p = $json;\n\nfunction pick(o, path, fb=\"\"){ \n  try { return path.split('.').reduce((x,k)=>x && x[k], o) ?? fb; } catch(e){ return fb; }\n}\n\nconst userId = pick(p,'userId', pick(p,'user.id', pick(p,'sender.id','anonymous')));\nconst message = String(p.message ?? pick(p,'message.text','')).trim();\n\nif (!message) {\n  // must return a SINGLE object\n  return { error: 'empty_message', userId };\n}\n\nreturn { userId, message, original: p, ts: Date.now() };\n"
       },
-      "id": "ab8185c2-c024-46cd-864b-995637d14129",
+      "id": "7dd5f541-213d-4312-b005-fd5d514d2e1e",
       "name": "Sanitize (Code)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1584,
-        176
+        -3616,
+        -96
       ]
     },
     {
@@ -39,15 +39,29 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"userId\": \"={{ $json.userId }}\",\n  \"message\": \"={{ $json.message }}\"\n}",
-        "options": {}
+        "options": {
+          "ignoreResponseCode": true
+        },
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.INTERNAL_API_KEY || 'devkey'}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        }
       },
-      "id": "750f17b2-e0e8-4e0e-9920-d26b2a5d7dab",
+      "id": "2dfa7191-bb2f-45d8-8ec7-dbef15268a99",
       "name": "HTTP → FastAPI (LLM)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        -1296,
-        176
+        -3328,
+        -96
       ]
     },
     {
@@ -55,13 +69,13 @@
         "mode": "runOnceForEachItem",
         "jsCode": "// Normalize FastAPI response (expect { reply_text, action })\nconst r = $json;\nreturn {\n  reply_text: r.reply_text ?? 'OK',\n  action: r.action ?? null,\n  raw: r\n};\n"
       },
-      "id": "3cea0edb-d230-4095-aee2-184e55c111c5",
+      "id": "f059c4a4-c57e-4a09-bbd7-d940bace2a3a",
       "name": "Parse LLM Response (Code)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1056,
-        176
+        -3088,
+        -96
       ]
     },
     {
@@ -89,13 +103,13 @@
         },
         "options": {}
       },
-      "id": "e5fbab99-00ca-46c7-b620-dde270063714",
+      "id": "1c09994f-4d60-49a4-b1d0-feee7380597e",
       "name": "IF action == send_email?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        -816,
-        176
+        -2656,
+        -96
       ]
     },
     {
@@ -105,28 +119,116 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"to\": \"={{ $json.action?.args?.to || 'someone@example.com' }}\",\n  \"subject\": \"={{ $json.action?.args?.subject || 'Hello' }}\",\n  \"body\": \"={{ $json.action?.args?.body || $json.reply_text }}\"\n}",
-        "options": {}
+        "options": {
+          "ignoreResponseCode": true
+        },
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.INTERNAL_API_KEY || 'devkey'}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        }
       },
-      "id": "f04d0bfc-8ce9-4c18-b1d3-3af0639d440a",
+      "id": "4925688e-9ba1-426f-8d19-844f87a4892c",
       "name": "HTTP → FastAPI (Send Email)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        -576,
+        -2480,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": "={ {\"Content-Type\": \"application/json\"} }"
+        },
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "2932a860-e75e-4be5-9f80-eea41d052d42",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -2080,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Log response for visibility\nconsole.log('Execution Log:', $json);\nreturn $json;"
+      },
+      "id": "04bed5c3-0835-49a3-a98a-c6c9a761eb1b",
+      "name": "Log Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2832,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Log sanitized & LLM response for visibility\nconst input = $json;\nconsole.log('LOG: parsed-response', input);\nreturn input;"
+      },
+      "id": "c67143c0-5991-463d-9549-ab3bec47fbd4",
+      "name": "Log (Code) – Visibility",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2880,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Log email result for visibility\nconst input = $json;\nconsole.log('LOG: email-result', input);\nreturn input;"
+      },
+      "id": "51143aa4-a508-49b5-9eaa-e19881e49d0c",
+      "name": "Log (Code) – Email Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2304,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const reply_text = $json.reply_text || '(empty)';\nreturn { status:'ok', actionTaken:'reply', reply_text };"
+      },
+      "id": "prep-false",
+      "name": "Send Reply (Code) – False branch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2480,
         64
       ]
     },
     {
       "parameters": {
-        "options": {}
+        "mode": "runOnceForEachItem",
+        "jsCode": "const reply_text = $item(0).$node[\"Parse LLM Response (Code)\"].json.reply_text || '';\nreturn { status:'ok', actionTaken:'send_email', reply_text };"
       },
-      "id": "507f5177-40ec-47f6-b3f2-c271f34feaf8",
-      "name": "Respond to Webhook",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
+      "id": "prep-email",
+      "name": "Prepare Response (Code) – Email branch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
-        -400,
-        256
+        -2160,
+        -224
       ]
     }
   ],
@@ -169,7 +271,7 @@
       "main": [
         [
           {
-            "node": "IF action == send_email?",
+            "node": "Log (Code) – Visibility",
             "type": "main",
             "index": 0
           }
@@ -187,7 +289,7 @@
         ],
         [
           {
-            "node": "Respond to Webhook",
+            "node": "Send Reply (Code) – False branch",
             "type": "main",
             "index": 0
           }
@@ -195,6 +297,50 @@
       ]
     },
     "HTTP → FastAPI (Send Email)": {
+      "main": [
+        [
+          {
+            "node": "Log (Code) – Email Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log (Code) – Visibility": {
+      "main": [
+        [
+          {
+            "node": "IF action == send_email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log (Code) – Email Result": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response (Code) – Email branch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reply (Code) – False branch": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Response (Code) – Email branch": {
       "main": [
         [
           {
@@ -210,11 +356,10 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "a5b5c44c-a046-45cf-a823-6a40fb20e614",
+  "versionId": "2210f09d-e351-4231-bf6d-7c67da2a5df8",
   "meta": {
-    "templateCredsSetupCompleted": true,
     "instanceId": "61509ca986d334887b912ca08e21bd649c894989ee0d6fce84cea07a636afaf8"
   },
-  "id": "LYLRHBmvbas9YaYI",
+  "id": "7brPbf98A5XGL0EY",
   "tags": []
 }

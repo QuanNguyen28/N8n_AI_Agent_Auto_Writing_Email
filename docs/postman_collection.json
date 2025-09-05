@@ -1,0 +1,86 @@
+{
+  "info": {
+    "name": "AI Agent API (Week 1)",
+    "_postman_id": "d3f1b1d0-0000-4aaa-bbbb-cccccccccccc",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/health",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8000",
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "LLM Chat (mock)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "devkey"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8000/internal/llm-chat",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8000",
+          "path": [
+            "internal",
+            "llm-chat"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"userId\": \"u1\", \"message\": \"hello\"}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Send Email (mock)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "devkey"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8000/internal/send-email",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8000",
+          "path": [
+            "internal",
+            "send-email"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"to\": \"user@example.com\", \"subject\": \"Demo\", \"body\": \"<p>Hi</p>\"}"
+        }
+      },
+      "response": []
+    }
+  ]
+}
